@@ -1,5 +1,9 @@
 import express from "express";
 import bodyParser from "body-parser";
+import dotenv from "dotenv";
+import pg from "pg";
+
+dotenv.config({path: ".env"});
 
 const app = express();
 const port = 3000;
@@ -8,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 app.get("/", async (req, res) => {
-  //Write your code here.
+
 });
 
 app.listen(port, () => {
