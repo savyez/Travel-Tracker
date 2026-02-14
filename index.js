@@ -33,12 +33,10 @@ async function isCountryVisited(countryCode) {
 app.get("/", async (req, res) => {
   try {
     const result = await db.query("SELECT country_code FROM visited_country");
-    const visited_countries = result.rows.map((row) => row.country_code);
-    const total_country = visited_countries.length;
-
+    const visitedCountries = result.rows.map((row) => row.country_code);
     res.render("index.ejs", {
-      countries: visited_countries,
-      total: total_country,
+      countries: visitedCountries,
+      total: visitedCountries.length,
     });
   } catch (err) {
     console.error("Error executing query", err.stack);
@@ -51,31 +49,52 @@ app.get("/", async (req, res) => {
 // POST ROUTE
 app.post("/add", async (req, res) => {
   try {
-      const userCountry = req.body.country.trim();
-      const result = await db.query(
-        "SELECT country_code FROM countries WHERE LOWER(country_name) = LOWER($1)",
-        [userCountry]
-        );
-      if (result.rows.length === 0) {
-        return res.redirect("/");
-      }
+    const userCountry = req.body.country?.trim();
 
-      const userCountryCode = result.rows[0].country_code;
+    if (!userCountry) {
+      throw new Error("No country to add");
+    }
+
+    const countryResult = await db.query(
+      "SELECT country_code FROM countries WHERE LOWER(country_name) = LOWER($1)",
+      [userCountry]
+    );
+
+    if (countryResult.rows.length === 0) {
+      throw new Error("No country found, check the spelling");
+    }
+
+    const userCountryCode = countryResult.rows[0].country_code;
+    try {
       const alreadyVisited = await isCountryVisited(userCountryCode);
-
-      if (!alreadyVisited) {
-        await db.query(
-          "INSERT INTO visited_country (country_code) VALUES ($1)",
-          [userCountryCode]
-        );
+      if (alreadyVisited) {
+        throw new Error("Country is already visited.");
       }
-      return res.redirect("/");
 
+      await db.query(
+        "INSERT INTO visited_country (country_code) VALUES ($1)",
+        [userCountryCode]
+      );
+
+      return res.redirect("/");
+    } catch (err) {
+      const result = await db.query("SELECT country_code FROM visited_country");
+      const visitedCountries = result.rows.map((row) => row.country_code);
+      return res.render("index.ejs", {
+        countries: visitedCountries,
+        total: visitedCountries.length,
+        error: err.message || "Database error",
+      });
+    }
   } catch (err) {
-    console.error("Error executing query", err.stack);
-    res.status(500).send("Database error");
+    const result = await db.query("SELECT country_code FROM visited_country");
+    const visitedCountries = result.rows.map((row) => row.country_code);
+    return res.render("index.ejs", {
+      countries: visitedCountries,
+      total: visitedCountries.length,
+      error: err.message || "Database error",
+    });
   }
-  db.end();
 });
 
 
